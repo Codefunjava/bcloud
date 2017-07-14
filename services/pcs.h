@@ -33,11 +33,15 @@ class Pcs : public QObject {
   bool cookie_inited_ = false;
   QString username_;
   QString token_;
+  QString rsakey_;
 
  private slots:
   void onGetBaiduId();
   void onGetToken();
   void onGetUbi();
+  void onCheckLogin();
+  void onGetPublicKey();
+  void onPostLogin();
 };
 
 }  // namespace bcloud

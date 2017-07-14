@@ -39,7 +39,6 @@ void Pcs::checkLoginState(const QString& username) {
     const QString url = QString("%1?getapi&tpl=mn&apiver=v3&tt=%2"
                                 "&class=login&logintype=basicLogin")
         .arg(kPassportUrl).arg(0);
-
     QNetworkRequest request;
     request.setUrl(QUrl(url));
     QNetworkReply* reply = network_manager_->get(request);
@@ -48,7 +47,14 @@ void Pcs::checkLoginState(const QString& username) {
     // TODO(LiuLang): Handle request errors.
 
   } else {
-    // TODO
+    const QString url = QString("%1?logincheck&token=%2&tpl=mm&apiver=v3"
+                                "&tt=%3&username=%4&isphone=false")
+        .arg(kPassportUrl).arg(token_).arg(0).arg(username);
+    QNetworkRequest request;
+    request.setUrl(QUrl(url));
+    QNetworkReply* reply = network_manager_->get(request);
+    connect(reply, &QNetworkReply::finished,
+            this, &Pcs::onCheckLogin);
   }
 }
 
@@ -110,6 +116,49 @@ void Pcs::onGetUbi() {
   reply->deleteLater();
 
   // Check login.
+  this->checkLoginState(username_);
+}
+
+void Pcs::onCheckLogin() {
+  qDebug() << "onCheckLogin()";
+  QNetworkReply* reply = qobject_cast<QNetworkReply*>(this->sender());
+  const QByteArray body = reply->readAll();
+  reply->deleteLater();
+  qDebug() << "reply body:" << body;
+
+  // Get public key.
+  const QString url = QString("https://passport.baidu.com/v2/getpublickey"
+                              "?token=%1&tpl=pp&apiver=v3&tt=%2")
+      .arg(token_).arg(0);
+  QNetworkRequest request;
+  request.setUrl(QUrl(url));
+  QNetworkReply* next_reply = network_manager_->get(request);
+  connect(next_reply, &QNetworkReply::finished,
+          this, &Pcs::onGetPublicKey);
+}
+
+void Pcs::onGetPublicKey() {
+  QNetworkReply* reply = qobject_cast<QNetworkReply*>(this->sender());
+  const QByteArray body = reply->readAll();
+  reply->deleteLater();
+  qDebug() << "reply body:" << body;
+
+  // Post login.
+  const QString code_string;
+  QNetworkRequest request;
+  request.setUrl(QUrl("https://passport.baidu.com/v2/api/?login"));
+  const QByteArray data =
+      QString("staticpage=https://passport.baidu.com/static/passpc-"
+              "account/html/v3Jump.html&charset=UTF-8&token=%1&tpl=pp&subpro"
+              "&apiver=v3&tt=%2&codestring=%3&safeflg=0&u=https://p")
+      .arg(token_).arg(0).arg(code_string).toLocal8Bit();
+  QNetworkReply* next_reply = network_manager_->post(request, data);
+  connect(next_reply, &QNetworkReply::finished,
+          this, &Pcs::onPostLogin);
+}
+
+void Pcs::onPostLogin() {
+
 }
 
 
